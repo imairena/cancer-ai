@@ -1,0 +1,39 @@
+# Environments
+.env
+.env.*
+!.env.example
+*.local
+
+# Frontend / Node
+node_modules/
+dist/
+dist-ssr/
+build/
+.npm/
+npm-debug.log*
+
+# Backend / Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+venv/
+env/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+.pytest_cache/
+uvicorn.log
+models/
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
