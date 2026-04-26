@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useLocation, Link } from 'react-router-dom'
-import { ArrowLeft, AlertTriangle, Download } from 'lucide-react'
+import { ArrowLeft, AlertTriangle, Download, Eye } from 'lucide-react'
 import { supabase } from '../supabase'
 
 export default function Report() {
@@ -67,6 +67,36 @@ export default function Report() {
     document.body.removeChild(a)
   }
 
+  const handleViewHeatmap = async () => {
+    if (!result?.heatmap_url && !heatmapSrc) return
+
+    if (result?.heatmap_url?.startsWith('http')) {
+      window.open(result.heatmap_url, '_blank')
+      return
+    }
+
+    if (result?.heatmap_url) {
+      const { data, error } = await supabase
+        .storage
+        .from('diagnostic-results')
+        .createSignedUrl(result.heatmap_url, 3600)
+
+      if (error) {
+        console.error('Signed URL error:', error)
+        return
+      }
+
+      if (data?.signedUrl) {
+        window.open(data.signedUrl, '_blank')
+        return
+      }
+    }
+
+    if (heatmapSrc) {
+      window.open(heatmapSrc, '_blank')
+    }
+  }
+
   if (pageError) {
     return (
       <div className="min-h-screen text-red-500 p-8 flex flex-col justify-center items-center">
@@ -117,7 +147,19 @@ export default function Report() {
               <h2 className="text-2xl font-bold">Analysis Report</h2>
               <p className="text-blue-100 mt-1">Patient ID: {patientId}</p>
             </div>
-            {reportSrc ? (
+            <div className="flex items-center gap-3">
+              {heatmapSrc ? (
+                <button
+                  onClick={handleViewHeatmap}
+                  className="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded shadow-sm font-semibold hover:bg-blue-50 transition"
+                >
+                  <Eye className="h-4 w-4 mr-2" />
+                  View Heatmap
+                </button>
+              ) : (
+                <span className="text-blue-200 mt-2 font-semibold">Heatmap not available</span>
+              )}
+              {reportSrc ? (
                 <button
                   onClick={handleDownloadPdf}
                   className="inline-flex items-center px-4 py-2 bg-white text-blue-600 rounded shadow-sm font-semibold hover:bg-blue-50 transition"
@@ -125,9 +167,10 @@ export default function Report() {
                   <Download className="h-4 w-4 mr-2" />
                   Download PDF
                 </button>
-            ) : (
+              ) : (
                 <span className="text-blue-200 mt-2 font-semibold">PDF File not available</span>
-            )}
+              )}
+            </div>
           </div>
           
           <div className="p-8 space-y-8">

@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { Activity, Plus, FileText, CheckCircle, AlertTriangle, ChevronDown } from 'lucide-react'
+import { Activity, Plus, FileText, CheckCircle, AlertTriangle, ChevronDown, Eye } from 'lucide-react'
 import { supabase } from '../supabase'
 
 export default function Dashboard({ session }: { session: any }) {
@@ -28,6 +28,7 @@ export default function Dashboard({ session }: { session: any }) {
     if (rawData) {
       const processedCases = await Promise.all(rawData.map(async (cs) => {
         let finalReportUrl = cs.report_url;
+        let finalHeatmapUrl = cs.heatmap_url;
         
         if (cs.report_url && !cs.report_url.startsWith('http')) {
           const { data, error } = await supabase
@@ -43,10 +44,24 @@ export default function Dashboard({ session }: { session: any }) {
           const signedUrl = data.signedUrl
           finalReportUrl = signedUrl
         }
+
+        if (cs.heatmap_url && !cs.heatmap_url.startsWith('http')) {
+          const { data, error } = await supabase
+            .storage
+            .from('diagnostic-results')
+            .createSignedUrl(cs.heatmap_url, 3600)
+
+          if (error) {
+            console.error('Signed URL error:', error)
+          } else {
+            finalHeatmapUrl = data.signedUrl
+          }
+        }
         
         return {
           ...cs,
-          report_url: finalReportUrl
+          report_url: finalReportUrl,
+          heatmap_url: finalHeatmapUrl
         }
       }))
       setCases(processedCases);
@@ -138,15 +153,28 @@ export default function Dashboard({ session }: { session: any }) {
                           )}
                         </div>
                         
-                        <a 
-                          href={cs.report_url}
-                          target="_blank"
-                          rel="noreferrer"
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition group"
-                        >
-                          <FileText className="h-5 w-5 mr-2 text-blue-500 group-hover:text-blue-700" />
-                          View Report
-                        </a>
+                        <div className="flex items-center gap-2">
+                          {cs.heatmap_url ? (
+                            <a
+                              href={cs.heatmap_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition group"
+                            >
+                              <Eye className="h-5 w-5 mr-2 text-blue-500 group-hover:text-blue-700" />
+                              View Heatmap
+                            </a>
+                          ) : null}
+                          <a 
+                            href={cs.report_url}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none transition group"
+                          >
+                            <FileText className="h-5 w-5 mr-2 text-blue-500 group-hover:text-blue-700" />
+                            View Report
+                          </a>
+                        </div>
                       </div>
                     </div>
                   </div>

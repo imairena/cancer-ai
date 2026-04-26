@@ -29,7 +29,8 @@ def generate_gradcam_heatmap(model, input_tensor):
     with torch.enable_grad():
         output = model(input_tensor)
         model.zero_grad()
-        loss = output.sum()
+        # Target the predicted malignant confidence across the 3-slice batch.
+        loss = output[:, 0].mean()
         loss.backward()
         
     fh.remove()
@@ -46,10 +47,6 @@ def generate_gradcam_heatmap(model, input_tensor):
     # Collapse 3 parallel depth slices down into a unified flat layer probability map
     cam = cam.mean(dim=0).detach().cpu().numpy()
     
-    # Threshold bounding + UI upscaling
-    if cam.max() > 0:
-        cam = cam / cam.max()
-        
     # Extract centre slice from t1c channel
     t1c_slice = input_tensor[1, 3, :, :].detach().cpu().numpy()
     
@@ -64,6 +61,27 @@ def generate_gradcam_heatmap(model, input_tensor):
     cam = np.flipud(cam)
     t1c_slice = np.rot90(t1c_slice, k=3)
     t1c_slice = np.flipud(t1c_slice)
+
+    # Suppress corner/background artifacts by constraining CAM to brain tissue.
+    brain_mask = (t1c_slice > 0.08).astype(np.float32)
+    if brain_mask.max() > 0:
+        cam = cam * brain_mask
+
+    # Robust scaling avoids a single outlier pixel dominating the map.
+    masked_values = cam[brain_mask > 0]
+    if masked_values.size > 0:
+        low = np.percentile(masked_values, 5)
+        high = np.percentile(masked_values, 99)
+        if high > low:
+            cam = np.clip((cam - low) / (high - low), 0, 1)
+        else:
+            cam = np.zeros_like(cam)
+    else:
+        cam = np.zeros_like(cam)
+
+    cam = cv2.GaussianBlur(cam, (9, 9), 0)
+    if cam.max() > 0:
+        cam = cam / cam.max()
     
     # Convert brain slice to RGB
     t1c_8bit = np.uint8(255 * t1c_slice)
